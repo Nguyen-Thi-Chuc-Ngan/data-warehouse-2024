@@ -1,19 +1,22 @@
-package com.example.demo.service;
+package com.example.demo.services;
 
-import com.example.demo.model.Log;
-import com.example.demo.model.LogLevel;
-import com.example.demo.model.Status;
+import com.example.demo.dao.LogDAO;
+import com.example.demo.entities.Log;
+import com.example.demo.entities.LogLevel;
+import com.example.demo.entities.Status;
 import com.example.demo.repository.LogRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class LogService {
     private final LogRepository logRepository;
-
-    public LogService(LogRepository logRepository) {
+    private final LogDAO logDAO;
+    public LogService(LogRepository logRepository, LogDAO logDAO) {
         this.logRepository = logRepository;
+        this.logDAO = logDAO;
     }
 
     public Log save(Log log) {
@@ -37,5 +40,9 @@ public class LogService {
 
         // Lưu log vào cơ sở dữ liệu
         save(log);
+    }
+
+    public List<Log> findLogsByStatusAndDate(){
+        return logDAO.findLogsByStatusAndDate();
     }
 }

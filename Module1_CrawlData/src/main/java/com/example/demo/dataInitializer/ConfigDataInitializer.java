@@ -32,9 +32,7 @@ public class ConfigDataInitializer implements CommandLineRunner {
         config1.setDestinationPath(currentDir);
         config1.setBackupPath("data_temporary");
         config1.setDelimiter(",");
-        config1.setColumns("id,sku,productName,shortDescription,price,originalPrice," +
-                "discount,quantitySold,description,images,sizes,color,brandName," +
-                "thumbnailUrl,discountRate,ratingAverage,reviewCount,urlKey,urlPath,shortUrl,type");
+        config1.setColumns("product_id,sku,product_name,price,original_price,brand_name,discount,thumbnail_url,short_description,images,colors,size,rating_average,review_count,discount_rate,quantity_sold,url_key,url_path,short_url,type,create_time ");
         config1.setTables("Product_Dim, Date_Dim");
         config1.setStatus(Status.READY_EXTRACT);
         config1.setSTAGING_source_username("root");

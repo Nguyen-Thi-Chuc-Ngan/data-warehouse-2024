@@ -56,7 +56,7 @@ public class DemoApplication implements CommandLineRunner {
 		if (runningConfigOptional.isPresent()) {
 			Config runningConfig = runningConfigOptional.get();
 			String message = "Có một config đang chạy: " + runningConfig.getId() + ". Không bắt đầu crawl.";
-			logService.logCrawlEvent(runningConfig.getId(), LogLevel.WARNING, Status.PROCESSING, message, "", 0, 0);
+			logService.logCrawlEvent(runningConfig.getId(), LogLevel.WARNING,"Không có", Status.PROCESSING, message, "", 0, 0);
 			emailService.sendFailureEmail(runningConfig.getNotificationEmails(), message);
 			return; // Dừng lại nếu có config đang chạy
 		}
@@ -99,9 +99,9 @@ public class DemoApplication implements CommandLineRunner {
 		// Cập nhật trạng thái thành "đang chạy" và ghi log
 		readyConfig.setStatus(Status.PROCESSING);
 		configService.updateConfig(readyConfig);
-		logService.logCrawlEvent(readyConfig.getId(), LogLevel.INFO, Status.PROCESSING,
+		logService.logCrawlEvent(readyConfig.getId(), LogLevel.INFO,"Không có", Status.PROCESSING,
 				"Bắt đầu crawl với config.", "", 0, 0);
-    
+
 		try {
 			System.out.println("Bắt đầu crawl với config: " + readyConfig.getId());
 			String currentDirectory = readyConfig.getDestinationPath();
@@ -169,7 +169,7 @@ public class DemoApplication implements CommandLineRunner {
 								product.validate();
 							} catch (IllegalArgumentException e) {
 								System.err.println("Sản phẩm không hợp lệ: " + e.getMessage());
-								logService.logCrawlEvent(readyConfig.getId(), LogLevel.ERROR, Status.FAILURE_EXTRACT,
+								logService.logCrawlEvent(readyConfig.getId(), LogLevel.ERROR,"Không có", Status.FAILURE_EXTRACT,
 										"Sản phẩm không hợp lệ: " + product.getId() + " - " + e.getMessage(), "", 1, 0);
 								return; // Dừng lại nếu có sản phẩm không hợp lệ
 							}
@@ -203,7 +203,7 @@ public class DemoApplication implements CommandLineRunner {
 			if (crawlSuccess) {
 				long endTime = System.currentTimeMillis();
 				long duration = endTime - startTime;
-				logService.logCrawlEvent(readyConfig.getId(), LogLevel.INFO, Status.SUCCESS_EXTRACT,
+				logService.logCrawlEvent(readyConfig.getId(), LogLevel.INFO, outputCsvFilePath, Status.SUCCESS_EXTRACT,
 						"Crawl hoàn thành trong " + duration + " ms", "", products.size(), 0);
 			} else {
 				String message = "Crawl không thành công sau " + retryAttempts + " lần thử.";
@@ -220,7 +220,7 @@ public class DemoApplication implements CommandLineRunner {
 		configService.updateConfig(readyConfig);
 		String stackTrace = Arrays.toString(e.getStackTrace());
 		emailService.sendFailureEmail(readyConfig.getNotificationEmails(), message);
-		logService.logCrawlEvent(readyConfig.getId(), LogLevel.ERROR, Status.FAILURE_EXTRACT, message, stackTrace, 1, 0);
+		logService.logCrawlEvent(readyConfig.getId(), LogLevel.ERROR,"Không có", Status.FAILURE_EXTRACT, message, stackTrace, 1, 0);
 		System.err.println(message);
 	}
 }
