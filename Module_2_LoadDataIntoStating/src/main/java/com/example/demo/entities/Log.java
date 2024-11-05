@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,13 +24,12 @@ public class Log {
     private String destinationPath;   // Đường dẫn đích đến
     private int count;
     private String location;
-    private long time;
+    private LocalDateTime updateTime;
     private String errorMessage;
     private String stackTrace;  // Chi tiết stack trace khi xảy ra lỗi
 
     @Enumerated(EnumType.STRING) // Nếu Status là enum
     private Status status;  // Trạng thái của quá trình crawl
-
     private String createdBy;
     private LocalDateTime createTime;
 }
