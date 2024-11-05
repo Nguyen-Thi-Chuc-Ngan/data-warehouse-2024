@@ -2,6 +2,7 @@ package com.example.demo.dao;
 
 import com.example.demo.model.Config;
 import com.example.demo.model.Log;
+import com.example.demo.model.Status;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
@@ -21,9 +22,9 @@ public class LogDAO {
     public void saveLog(Log log) {
         String sql = """
             INSERT INTO logs (id_config, log_level, destination_path, count, 
-                              location, time, error_message, stack_trace, 
-                              status, created_by, create_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                              location, update_time, error_message, stack_trace, 
+                              status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         entityManager.createNativeQuery(sql)
@@ -38,6 +39,35 @@ public class LogDAO {
                 .setParameter(9, log.getStatus().name()) // Chuyển đổi enum thành String
                 .setParameter(10, log.getCreatedBy())
                 .executeUpdate(); // Thực hiện câu lệnh INSERT
+    }
+
+    // Kiểm tra có log nào trong ngày hôm nay không
+    public boolean isLogTodayExists() {
+        String sql = """
+            SELECT COUNT(*) 
+            FROM logs 
+            WHERE DATE(create_time) = CURDATE()
+        """;
+
+        Long count = (Long) entityManager.createNativeQuery(sql)
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    // Kiểm tra xem có log nào trong ngày hôm nay cho configId không
+    public boolean isTodayLogExistsForConfig(int configId) {
+        String sql = """
+            SELECT COUNT(*) 
+            FROM logs 
+            WHERE id_config = ?1 AND DATE(create_time) = CURDATE()
+        """;
+
+        Long count = (Long) entityManager.createNativeQuery(sql)
+                .setParameter(1, configId)
+                .getSingleResult();
+
+        return count > 0;
     }
 
 
@@ -129,7 +159,7 @@ public class LogDAO {
         """;
 
         entityManager.createNativeQuery(sql)
-                .setParameter(1, log.getStatus())
+                .setParameter(1, log.getStatus().name())
                 .setParameter(2, log.getCount())
                 .setParameter(3, log.getUpdateTime())
                 .setParameter(4, log.getLogLevel().name())

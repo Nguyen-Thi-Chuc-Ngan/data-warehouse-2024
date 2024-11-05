@@ -77,4 +77,15 @@ public class LogService {
         return logDAO.getLatestLogByConfigId(configId);
     }
 
+    public boolean isLogTodayExists() {
+        return logDAO.isLogTodayExists();
+    }
+
+    public boolean isTodayLogExistsForConfig(int configId) {
+        return logDAO.isTodayLogExistsForConfig(configId);
+    }
+    public void saveLog(Log log) {
+        logDAO.saveLog(log);
+    }
+
 }

@@ -1,12 +1,10 @@
 package com.example.demo;
 
-import com.example.demo.dao.ConfigDAO;
 import com.example.demo.model.*;
 import com.example.demo.service.ConfigService;
 import com.example.demo.service.LogService;
 import com.example.demo.service.crawler.CrawlService;
 import com.example.demo.service.emailService.EmailServiceImpl;
-import com.example.demo.service.emailService.IEmailService;
 import com.example.demo.utils.CsvReader;
 import com.example.demo.utils.CsvWriter;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -20,9 +18,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 @SpringBootApplication
@@ -50,24 +45,19 @@ public class DemoApplication implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
+		// Lấy ra danh sách các config đang hoạt động
+		List<Config> configs = configService.getActiveConfigs();
+
+		checkAndAddLogIfNotExists(configs);
+
 		CsvReader csvReader = new CsvReader();
 
 		if (checkAndNotifyRunningConfigs()) return;
 
-		// Lấy danh sách cấu hình đang hoạt động
-		List<Config> readyConfigs = logService.getReadyStatusesToday(); // Lấy các config có trạng thái READY_EXTRACT
-
-		if (readyConfigs.isEmpty()) {
-			System.out.println("Không có cấu hình nào ở trạng thái READY_EXTRACT.");
-			return; // Không có config nào để chạy
-		}
 		List<Future<?>> futures = new ArrayList<>();
 
-		// Lấy danh sách cấu hình đang hoạt động
-		List<Config> activeConfigs = configService.getActiveConfigs();
-
 		// Chạy crawl cho từng cấu hình đang hoạt động
-		for (Config config : activeConfigs) {
+		for (Config config : configs) {
 			Future<?> future = executorService.submit(() -> {
 				runCrawlForConfig(config, csvReader);
 			});
@@ -84,22 +74,59 @@ public class DemoApplication implements CommandLineRunner {
 		}
 		executorService.shutdown();
 		try {
-			if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-				executorService.shutdownNow();
+			// Chờ tối đa 60 giây * 3 để tất cả các công việc hoàn thành
+			if (!executorService.awaitTermination(60*3, TimeUnit.SECONDS)) {
+				executorService.shutdownNow();// Nếu không hoàn thành, dừng ngay lập tức
 			}
 		} catch (InterruptedException e) {
 			executorService.shutdownNow();
 		}
 	}
 
+	/**
+	 * Kiểm tra xem hôm nay có log nào không?
+	 * Nếu có bỏ qua.
+	 * Nếu không thêm log mới dựa trên các config đang hoạt động.
+	 * @param configs
+	 **/
+	private void checkAndAddLogIfNotExists(List<Config> configs) {
+		for (Config config : configs) {
+			// Kiểm tra nếu log của config này cho hôm nay đã tồn tại
+			boolean todayLogExists = logService.isTodayLogExistsForConfig(config.getId());
+
+			if (!todayLogExists) {
+				// Nếu chưa có log cho config hôm nay, tạo log mới
+				Log log = new Log();
+				log.setIdConfig(config.getId());
+				log.setStatus(Status.READY_EXTRACT);
+				log.setCreateTime(LocalDateTime.now());
+				log.setUpdateTime(LocalDateTime.now());
+				log.setLogLevel(LogLevel.INFO);
+				log.setCreatedBy("Admin");
+				log.setLocation("Crawl data");
+
+				// Lưu log vào cơ sở dữ liệu
+				logService.saveLog(log);
+			} else {
+				System.out.println("Log cho config với ID " + config.getId() + " đã tồn tại hôm nay, bỏ qua việc thêm log.");
+			}
+		}
+    }
+
+	/**
+	 * Phương thức kiểm tra và thông báo nếu có cấu hình đang chạy
+	 */
 	private boolean checkAndNotifyRunningConfigs() {
+		// 3. Đếm số lượng bản ghi trong bảng logs mà có trạng thái là 'PROCESSING' và thời gian tạo (create_time) là ngày hiện tại
 		boolean isRunning = logService.isConfigRunning();
 
+		// 4. Kiểm tra xem số lượng bản ghi có lớn hơn 0 không?
 		if (isRunning) {
-			// Lấy danh sách các Config có trạng thái 'PROCESSING' trong ngày hôm nay
+			// 5. Lấy danh sách các Config có trạng thái 'PROCESSING' trong ngày hôm nay
 			List<Config> runningConfigs = logService.getProcessingStatusesToday();
 			System.out.println("Running configs count: " + runningConfigs.size());
 			if (!runningConfigs.isEmpty()) {
+
 				String ids = runningConfigs.stream()
 						.map(Config::getId)
 						.map(String::valueOf)
@@ -118,6 +145,7 @@ public class DemoApplication implements CommandLineRunner {
 		return false;
 	}
 
+	//	Phương thức lấy danh sách ID sản phẩm giới hạn từ file CSV
 	private List<String> getLimitedProductIds(Config readyConfig, CsvReader csvReader) {
 		String currentDirectory = readyConfig.getFilePath();
 		String csvFilePath = currentDirectory + FileSystems.getDefault().getSeparator()
@@ -181,7 +209,7 @@ public class DemoApplication implements CommandLineRunner {
 		while (!crawlSuccess && retryAttempts < readyConfig.getRetryCount()) {
 			try {
 				// Gọi dịch vụ crawl để lấy sản phẩm
-				System.out.println("Đang tiến hành crawl...");
+				System.out.println("Đang tiến hành crawl config " + readyConfig.getId() + "...");
 				List<Product> products = crawlService.crawlProducts(limitedProductIds, readyConfig.getSourcePath());
 
 				// Ghi kết quả vào tệp CSV
@@ -231,7 +259,7 @@ public class DemoApplication implements CommandLineRunner {
 					logService.updateLog(log);
 
 					emailService.sendSuccessEmail(readyConfig.getNotificationEmails(), outputCsvFilePath, products.size(), LocalDateTime.now());
-					System.out.println("Crawl thành công!");
+					System.out.println("Crawl thành công config "+ readyConfig.getId() + "!");
 					crawlSuccess = true;
 				}
 				else {
